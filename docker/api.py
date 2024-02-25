@@ -24,7 +24,7 @@ def createPartner():
     partner = {
         'id': len(partners),
         'name': request.json['name'],
-        'budget': request.json['budget'],
+        'budget': float(request.json['budget']),
         'spent_budget': 0,
         'is_stopped': False,
         'data': pd.DataFrame({'id': pd.Series(dtype='int'),
@@ -38,6 +38,9 @@ def createPartner():
 @app.route('/api/partners/<int:idp>', methods = ['GET'])
 def getPartner(idp):
     """Реализация Get (информация о партнёре)"""
+    if len(partners) <= idp:
+        return ''
+    #print(partners[idp]['is_stopped'])
     if not partners[idp]['is_stopped']:
         partners[idp]['is_stopped'] = off(idp)
     return flask.jsonify({i:partners[idp][i] for i in partners[idp] if i != 'data'})
@@ -50,10 +53,12 @@ def addCashback(idp):
         date = datetime.datetime.strptime(request.json['date'], '%Y-%m-%d %H:%M:%S')
     except:
         date = datetime.datetime.strptime(request.json['date'], '%Y-%m-%d')
+    cashback = int(request.json['cashback'])
     if date < partners[idp]['datestop']:
-        partners[idp]['spent_budget'] += request.json['cashback']
-        partners[idp]['data'].loc[len(partners[idp]['data'])] = [idp, request.json['cashback'], date]
-        partners[idp]['is_stopped'] = off(idp)
+        partners[idp]['spent_budget'] += cashback
+        partners[idp]['data'].loc[len(partners[idp]['data'])] = [idp, cashback, date]
+        if not partners[idp]['is_stopped']:
+            partners[idp]['is_stopped'] = off(idp)
         if partners[idp]['is_stopped'] and partners[idp]['datestop'] > datetime.datetime(8998, 1, 1):
             partners[idp]['datestop'] = date + datetime.timedelta(days=5)
     return ''
@@ -61,9 +66,18 @@ def addCashback(idp):
 def off(idp):
     """Проверка на остановку акции у партнера"""
     need = partners[idp]['budget'] - partners[idp]['spent_budget']  #сколько есть бюджета у партнера
-    if (not len(partners[idp]['data'])) or need > partners[idp]['data'].loc[len(partners[idp]['data']) - 1].cashback * 20: return False
+
+    #условия выхода
+    if need < 0: return True #если мы уже опаздали
+    if len(partners[idp]['data']) and need < partners[idp]['data'].loc[len(partners[idp]['data']) - 1].cashback * 2:
+        return True #если бюджета осталось прям супер мало
+    if len(partners[idp]['data']) and need > partners[idp]['data'].loc[len(partners[idp]['data']) - 1].cashback * 20:
+        return False #если бюджета предостаточно
+    if len(partners[idp]['data']) < 5: return False #если данных недостаточно
+    if len(partners[idp]['data']) and need < sum([partners[idp]['data'].loc[i].cashback for i in list(partners[idp]['data'].index)[-5:]]):
+        return True
     pred = model_predict(partners[idp]['data'])  #какая сумма кэшбеков предположительно будет
-    #print(need, pred, list(partners[idp]['data'].cashback))
+    #print(need, pred, partners[idp]['is_stopped'])
     return pred >= need * 1.2 or need < 0  #если предположительная сумма превосходит имеющуюся, то останавливаем (берём с запасом)
 
 def model_predict(data):
