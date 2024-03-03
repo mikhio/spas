@@ -54,7 +54,10 @@ def getPartner(idp):
     #print(partners[idp]['is_stopped'])
     if not partners[idp]['is_stopped']:
         partners[idp]['is_stopped'] = off(idp)
-    return flask.jsonify({i:partners[idp][i] for i in partners[idp] if i != 'data'}), 200
+
+    new_partner = partners[idp].copy()
+    new_partner['data'] = new_partner['data'].to_dict('records')
+    return flask.jsonify(new_partner), 200
 
 
 
@@ -74,7 +77,10 @@ def addCashback(idp):
             partners[idp]['is_stopped'] = off(idp)
         if partners[idp]['is_stopped'] and partners[idp]['datestop'] > datetime.datetime(8998, 1, 1):
             partners[idp]['datestop'] = date + datetime.timedelta(days=5)
-    return flask.json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
+
+    new_partner = partners[idp].copy()
+    new_partner['data'] = new_partner['data'].to_dict('records')
+    return flask.jsonify(new_partner), 200
 
 def off(idp):
     """Проверка на остановку акции у партнера"""
