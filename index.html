@@ -37,26 +37,35 @@
       </div>
 
       <script>
-        async function postData(url = "", data = {}) {
-          const response = await fetch(url, {
-            method: "POST",
-            mode: "cors",
-            cache: "no-cache",
-            credentials: "same-origin",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            redirect: "follow",
-            body: JSON.stringify(data)
-          });
-          return response.json();
+        async function send_request(url = "", method="GET", data = {}) {
+          let response;
+
+          if (method == "GET") {
+            response = await fetch(url);
+          } else {
+            response = await fetch(url, {
+              method: method,
+              mode: "cors",
+              cache: "no-cache",
+              credentials: "same-origin",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              redirect: "follow",
+              body: JSON.stringify(data)
+            });
+          }
+
+          if (response.ok) return await response.json();
+
+          return null
         }
 
         async function add_partner() {
           const name = document.getElementById('input-partner-name').value
           const budget = document.getElementById('input-partner-budget').value
 
-          let response = await postData("http://127.0.0.1:8080/api/partners", {name: name, budget: budget})
+          let response = await send_request("/api/partners", "POST", {name: name, budget: budget})
           location.reload()
         }
 
@@ -99,29 +108,13 @@
           const cashback = document.getElementById('cashback-input-' + id).value
           const name = document.getElementById('title-' + id).textContent
 
-          console.log()
+          const response = await send_request("/api/partners/" + id + "/cashback", "PUT", {date: date + " 00:00:00", cashback: cashback, name: name})
 
-          const response = await fetch('http://127.0.0.1:8080/api/partners/'+ id +'/cashback', {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({date: date + ' 00:00:00', cashback: cashback, name: name})
-          });
           return response;
         }
 
-        async function get_info(id) {
-          let response = await fetch("http://127.0.0.1:8080/api/partners/" + id)
-          if (response.ok) {
-            data = await response.json()
-            return data
-          }
-          return null
-        }
-
         async function load(cid) {
-          let data  = await get_info(cid)
+          const data = await send_request("/api/partners/" + cid);
 
           if (data != null) {
             add_card(data.id, data.name, data.budget, data.spent_budget, data.is_stopped)

@@ -1,0 +1,138 @@
+ <!DOCTYPE html>
+<html>
+  <head>
+    <title>SPAS</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <style>
+      .add-partner-label {
+        font-size: 23px;
+      }
+
+      .add-partner {
+        width: 400px;
+        margin: 50px auto;
+      }
+
+      .card {
+        width: 700px;
+        margin: 50px auto;
+      }
+
+      .card-text {
+        margin-bottom: 3px;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+    <body>
+      <div class="add-partner">
+        <label class="add-partner-label">Создание партнера</label>
+        <div class="form-group">
+          <input type="text" class="form-control" id="input-partner-name" placeholder="Имя партнера">
+        </div>
+        <div class="form-group">
+          <input type="text" class="form-control" id="input-partner-budget" placeholder="Бюджет">
+        </div>
+        <button class="btn btn-warning add-btn" onclick="add_partner()">Добавить</button>
+      </div>
+
+      <script>
+        async function postData(url = "", data = {}) {
+          const response = await fetch(url, {
+            method: "POST",
+            mode: "cors",
+            cache: "no-cache",
+            credentials: "same-origin",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            redirect: "follow",
+            body: JSON.stringify(data)
+          });
+          return response.json();
+        }
+
+        async function add_partner() {
+          const name = document.getElementById('input-partner-name').value
+          const budget = document.getElementById('input-partner-budget').value
+
+          let response = await postData("http://127.0.0.1:8080/api/partners", {name: name, budget: budget})
+          location.reload()
+        }
+
+        function add_card(id, name, budget, spent_budget, is_stopped) {
+          let status_txt = 'Активна'
+          let status_cls = 'bg-success'
+          if (is_stopped) {
+            status_txt = 'Остановлена'
+            status_cls = 'bg-danger'
+          }
+
+          document.body.innerHTML += ` 
+          <div class="card" id="`+ id +`">
+            <div class="card-header `+ status_cls +` text-white">`+ status_txt +`</div>
+            <div class="card-body">
+              <h5 class="card-title" id="title-`+ id +`">`+ name +`</h5>
+              <div class="input-group mb-3">
+                <input type="text" class="form-control" id="date-input-`+ id +`" placeholder="ГГГГ-ММ-ДД">
+                <input type="text" class="form-control" id="cashback-input-`+ id +`" placeholder="Кэшбэк">
+                <div class="input-group-append">
+                  <button class="btn btn-outline-secondary" onclick="send_cashback(this.id)" type="button" id="send-`+ id +`">Отправить</button>
+                </div>
+              </div>
+              <dl class="row">
+                <dt class="col-sm-3">Бюджет:</dt>
+                <dd class="col-sm-9 partner-budget">`+ budget +`</dd>
+                <dt class="col-sm-3">Потрачено:</dt>
+                <dd class="col-sm-9 partner-spent">`+ spent_budget +`</dd>
+              </dl>
+              <button class="btn btn-warning update-btn" onclick="location.reload()">Обновить</button>
+            </div>
+            <div class="card-footer text-muted">#`+ id +`</div>
+          </div>
+          `
+        }
+
+        async function send_cashback(btn_id) {
+          const id = btn_id.split('-')[1]
+          const date = document.getElementById('date-input-' + id).value
+          const cashback = document.getElementById('cashback-input-' + id).value
+          const name = document.getElementById('title-' + id).textContent
+
+          console.log()
+
+          const response = await fetch('http://127.0.0.1:8080/api/partners/'+ id +'/cashback', {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({date: date + ' 00:00:00', cashback: cashback, name: name})
+          });
+          return response;
+        }
+
+        async function get_info(id) {
+          let response = await fetch("http://127.0.0.1:8080/api/partners/" + id)
+          if (response.ok) {
+            data = await response.json()
+            return data
+          }
+          return null
+        }
+
+        async function load(cid) {
+          let data  = await get_info(cid)
+
+          if (data != null) {
+            add_card(data.id, data.name, data.budget, data.spent_budget, data.is_stopped)
+            return await load(cid+1)
+          }
+
+          return cid
+        }
+
+        load(0).then(cid => console.log(cid))
+        
+      </script>
+    </body>
+</html> 
